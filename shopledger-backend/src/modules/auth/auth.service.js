@@ -1,4 +1,4 @@
-﻿import bcrypt from 'bcrypt';
+import bcrypt from 'bcrypt';
 import { pool } from '../../config/db.js';
 import { signAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken } from '../../utils/tokenUtils.js';
 
@@ -49,6 +49,7 @@ export const authService = {
         name:   shop.name,
         email:  shop.owner_email,
         status: shop.status,
+        schema_name: shop.schema_name,
       }
     };
   },

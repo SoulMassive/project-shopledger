@@ -19,11 +19,11 @@ function CustomerDetailReal() {
   const [open, setOpen] = useState(false);
 
   const [form, setForm] = useState({
-    type: 'Credit',
+    type: 'cash_out', // cash_out (You Gave), cash_in (You Got)
     amount: '',
     category: 'Payment',
-    notes: '',
-    date: new Date().toISOString().split('T')[0]
+    note: '',
+    txn_date: new Date().toISOString().split('T')[0]
   });
 
   const fetchData = async () => {
@@ -34,7 +34,10 @@ function CustomerDetailReal() {
       ]);
       setCustomer(resCust.data.data);
       const allTx = resTx.data.data || [];
-      const filteredTx = allTx.filter(t => String(t.customer_id) === String(id));
+      const filteredTx = allTx.filter(t => 
+        (t.party_type === 'customer' && String(t.party_id) === String(id)) || 
+        String(t.customer_id) === String(id)
+      );
       setTransactions(filteredTx);
     } catch (err) {
       toast.error("Failed to load customer details");
@@ -51,10 +54,19 @@ function CustomerDetailReal() {
   const handleSaveTx = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/transactions', { ...form, customer_id: id });
+      const payload = {
+        party_type: 'customer',
+        party_id: id,
+        type: form.type,
+        amount: Number(form.amount),
+        category: form.category,
+        note: form.note,
+        txn_date: form.txn_date
+      };
+      await api.post('/transactions', payload);
       toast.success("Transaction recorded!");
       setOpen(false);
-      setForm({ type: 'Credit', amount: '', category: 'Payment', notes: '', date: new Date().toISOString().split('T')[0] });
+      setForm({ type: 'cash_out', amount: '', category: 'Payment', note: '', txn_date: new Date().toISOString().split('T')[0] });
       fetchData();
     } catch (err) {
       toast.error("Failed to save transaction");
@@ -160,24 +172,23 @@ function CustomerDetailReal() {
                     let current = Number(customer.balance);
                     const withBalances = [...transactions].reverse().map(tx => {
                       const entryBalance = current;
-                      // Backtrack logic (New Sign System):
-                      // Cash In (+) increases balance. Out (-) decreases it.
-                      // So previous = current - delta.
-                      const delta = tx.type === 'Credit' ? -tx.amount : tx.amount;
+                      // Backtrack logic: cash_in (+) adds to balance, cash_out (-) subtracts.
+                      // So previous = current - (delta).
+                      const delta = tx.type === 'cash_in' ? tx.amount : -tx.amount;
                       current -= delta;
                       return { ...tx, runningBalance: entryBalance };
                     }).reverse();
 
                     return withBalances.map((tx) => (
                       <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="table-cell text-slate-500 font-medium">{formatDate(tx.date)}</td>
+                        <td className="table-cell text-slate-500 font-medium">{formatDate(tx.txn_date || tx.date)}</td>
                         <td className="table-cell">
-                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${tx.type === "Debit" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
-                              {tx.type === 'Debit' ? 'Cash In (+)' : 'Cash Out (-)'}
+                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${tx.type === "cash_in" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                              {tx.type === 'cash_in' ? 'Money In (+)' : 'Money Out (-)'}
                            </span>
                         </td>
-                        <td className={`table-cell text-right font-black text-sm ${tx.type === "Debit" ? "text-emerald-600" : "text-rose-600"}`}>
-                           {tx.type === "Debit" ? "+" : "-"} {formatCurrency(tx.amount)}
+                        <td className={`table-cell text-right font-black text-sm ${tx.type === "cash_in" ? "text-emerald-600" : "text-rose-600"}`}>
+                           {tx.type === "cash_in" ? "+" : "-"} {formatCurrency(tx.amount)}
                         </td>
                         <td className={`table-cell text-right font-black ${tx.runningBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                            {formatCurrency(tx.runningBalance)}
@@ -193,13 +204,13 @@ function CustomerDetailReal() {
       {open && createPortal(
         <div className="fixed inset-0 z-[999] grid place-items-center bg-[#0F172A]/10 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setOpen(false)}>
           <div className="premium-card w-full max-w-sm shadow-[0_40px_80px_-15px_rgba(0,0,0,0.25)] p-0 overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className={`p-8 border-b border-slate-100 ${form.type === 'Credit' ? 'bg-rose-50/30' : 'bg-emerald-50/30'}`}>
+            <div className={`p-8 border-b border-slate-100 ${form.type === 'cash_out' ? 'bg-rose-50/30' : 'bg-emerald-50/30'}`}>
                <div className="flex items-center gap-3">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ring-4 ${form.type === 'Credit' ? 'bg-rose-50 text-rose-600 ring-rose-500/5' : 'bg-emerald-50 text-emerald-600 ring-emerald-500/5'}`}>
-                     <Icon name={form.type === 'Credit' ? 'upload' : 'download'} className="text-2xl" />
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ring-4 ${form.type === 'cash_out' ? 'bg-rose-50 text-rose-600 ring-rose-500/5' : 'bg-emerald-50 text-emerald-600 ring-emerald-500/5'}`}>
+                     <Icon name={form.type === 'cash_out' ? 'upload' : 'download'} className="text-2xl" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black tracking-tight text-[#0F172A]">{form.type === 'Credit' ? 'Entry: You Gave' : 'Entry: You Got'}</h3>
+                    <h3 className="text-xl font-black tracking-tight text-[#0F172A]">{form.type === 'cash_out' ? 'Entry: You Gave' : 'Entry: You Got'}</h3>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Customer Ledger Update</p>
                   </div>
                </div>
@@ -207,8 +218,8 @@ function CustomerDetailReal() {
 
             <form className="p-8 space-y-6" onSubmit={handleSaveTx}>
               <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-                 <button type="button" onClick={() => setForm(f => ({...f, type: 'Credit'}))} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${form.type === 'Credit' ? 'bg-white text-rose-600 shadow-md ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>You Gave</button>
-                 <button type="button" onClick={() => setForm(f => ({...f, type: 'Debit'}))} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${form.type === 'Debit' ? 'bg-white text-emerald-600 shadow-md ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>You Got</button>
+                 <button type="button" onClick={() => setForm(f => ({...f, type: 'cash_out'}))} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${form.type === 'cash_out' ? 'bg-white text-rose-600 shadow-md ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>You Gave</button>
+                 <button type="button" onClick={() => setForm(f => ({...f, type: 'cash_in'}))} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${form.type === 'cash_in' ? 'bg-white text-emerald-600 shadow-md ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>You Got</button>
               </div>
 
               <div className="space-y-1.5">
@@ -227,18 +238,18 @@ function CustomerDetailReal() {
                  </div>
                  <div className="space-y-1.5">
                     <label className="label">Date</label>
-                    <input className="input !h-12 !text-sm" type="date" name="date" value={form.date} onChange={(e) => setForm(f => ({...f, date: e.target.value}))} />
+                    <input className="input !h-12 !text-sm" type="date" name="txn_date" value={form.txn_date} onChange={(e) => setForm(f => ({...f, txn_date: e.target.value}))} />
                  </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="label">Notes (Optional)</label>
-                <textarea className="input min-h-[80px] py-3 text-sm" name="notes" placeholder="Describe this entry..." value={form.notes} onChange={(e) => setForm(f => ({...f, notes: e.target.value}))} />
+                <textarea className="input min-h-[80px] py-3 text-sm" name="note" placeholder="Describe this entry..." value={form.note} onChange={(e) => setForm(f => ({...f, note: e.target.value}))} />
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn h-12 !border-none text-slate-400 font-bold px-6 hover:text-slate-600 transition-colors">Discard</button>
-                <button className={`btn h-12 px-8 text-white font-black text-sm uppercase tracking-widest shadow-lg ${form.type === 'Credit' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20'}`} type="submit">Save Entry</button>
+                <button className={`btn h-12 px-8 text-white font-black text-sm uppercase tracking-widest shadow-lg ${form.type === 'cash_out' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20'}`} type="submit">Save Entry</button>
               </div>
             </form>
           </div>

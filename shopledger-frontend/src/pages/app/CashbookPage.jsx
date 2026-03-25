@@ -15,7 +15,7 @@ function CashbookPage() {
   const [stats, setStats] = useState({ total_in: 0, total_out: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [modalType, setModalType] = useState("IN"); 
+  const [modalType, setModalType] = useState("cash_in"); 
 
   const getLocalDate = (dateObj = new Date()) => {
     const d = dateObj;
@@ -26,8 +26,8 @@ function CashbookPage() {
     amount: '',
     category: '',
     paymentMode: 'Cash',
-    notes: '',
-    date: getLocalDate()
+    note: '',
+    entry_date: getLocalDate()
   });
 
   const [filters, setFilters] = useState({
@@ -41,19 +41,8 @@ function CashbookPage() {
         api.get('/cashbook'),
         api.get('/cashbook/stats')
       ]);
-      if (resEntries.data.data.length === 0) {
-        // Fallback mock data if server is empty
-        const today = getLocalDate();
-        setEntries([
-          { id: 1, date: today, type: "IN", amount: 2183, category: "Sales", paymentMode: "Cash", notes: "Daily sales" },
-          { id: 2, date: today, type: "OUT", amount: 18787, category: "Rent", paymentMode: "UPI", notes: "Monthly rent" },
-          { id: 3, date: today, type: "IN", amount: 16000, category: "Services", paymentMode: "Online", notes: "Web service" },
-        ]);
-        setStats({ total_in: 18183, total_out: 18787, balance: -604 });
-      } else {
-        setEntries(resEntries.data.data);
-        setStats(resStats.data.data);
-      }
+      setEntries(resEntries.data.data);
+      setStats(resStats.data.data);
     } catch (err) {
       toast.error("Failed to load cashbook data");
     } finally {
@@ -73,9 +62,9 @@ function CashbookPage() {
     e.preventDefault();
     try {
       await api.post('/cashbook', { ...form, type: modalType });
-      toast.success(`${modalType === 'IN' ? 'Cash In' : 'Cash Out'} recorded!`);
+      toast.success(`${modalType === 'cash_in' ? 'Cash In' : 'Cash Out'} recorded!`);
       setOpen(false);
-      setForm({ amount: '', category: '', notes: '', date: new Date().toISOString().split('T')[0] });
+      setForm({ amount: '', category: '', note: '', entry_date: getLocalDate() });
       fetchData();
     } catch (err) {
       toast.error("Failed to save entry");
@@ -83,12 +72,14 @@ function CashbookPage() {
   };
 
   const filtered = entries.filter(e => {
-    const entryDate = e.date.includes('T') ? e.date.split('T')[0] : e.date;
+    const rawDate = e.entry_date || e.date || '';
+    const dateStr = String(rawDate);
+    const entryDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
     const matchesDate = !filters.date || entryDate === filters.date;
     
     let matchesMode = true;
-    if (filters.paymentMode === "Cash In") matchesMode = e.type === "IN";
-    else if (filters.paymentMode === "Cash Out") matchesMode = e.type === "OUT";
+    if (filters.paymentMode === "Cash In") matchesMode = e.type === "cash_in";
+    else if (filters.paymentMode === "Cash Out") matchesMode = e.type === "cash_out";
     else if (filters.paymentMode !== "All") matchesMode = e.paymentMode === filters.paymentMode;
     
     return matchesDate && matchesMode;
@@ -106,7 +97,7 @@ function CashbookPage() {
         <div className="flex gap-3">
           <button 
             className="btn h-12 bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/20 px-6" 
-            onClick={() => { setModalType("IN"); setOpen(true); }}
+            onClick={() => { setModalType("cash_in"); setOpen(true); }}
             type="button"
           >
             <Icon name="add_circle" className="mr-2" />
@@ -114,7 +105,7 @@ function CashbookPage() {
           </button>
           <button 
             className="btn h-12 bg-rose-500 hover:bg-rose-600 text-white shadow-xl shadow-rose-500/20 px-6" 
-            onClick={() => { setModalType("OUT"); setOpen(true); }}
+            onClick={() => { setModalType("cash_out"); setOpen(true); }}
             type="button"
           >
             <Icon name="remove_circle" className="mr-2" />
@@ -186,7 +177,7 @@ function CashbookPage() {
               )}
               {filtered.map((e, idx) => (
                 <tr key={e.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="table-cell text-slate-500 font-medium">{formatDate(e.date)}</td>
+                  <td className="table-cell text-slate-500 font-medium">{formatDate(e.entry_date || e.date)}</td>
                   <td className="table-cell">
                     <div className="flex flex-col gap-1">
                       <span className="px-3 py-1 rounded-full bg-slate-100/80 text-slate-600 text-[10px] font-black uppercase tracking-tight w-fit">
@@ -197,9 +188,9 @@ function CashbookPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-400 text-xs italic max-w-[200px] truncate">{e.notes || '—'}</td>
-                  <td className={`table-cell text-right font-black text-base ${e.type === "IN" ? "text-emerald-600" : "text-rose-600"}`}>
-                    {e.type === "IN" ? "+" : "-"} {formatCurrency(e.amount)}
+                  <td className="table-cell text-slate-400 text-xs italic max-w-[200px] truncate">{e.note || e.notes || '—'}</td>
+                  <td className={`table-cell text-right font-black text-base ${e.type === "cash_in" ? "text-emerald-600" : "text-rose-600"}`}>
+                    {e.type === "cash_in" ? "+" : "-"} {formatCurrency(e.amount)}
                   </td>
                 </tr>
               ))}
@@ -211,13 +202,13 @@ function CashbookPage() {
       {open && createPortal(
         <div className="fixed inset-0 z-[999] grid place-items-center bg-[#0F172A]/10 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setOpen(false)}>
           <div className="premium-card w-full max-w-sm shadow-[0_40px_80px_-15px_rgba(0,0,0,0.25)] p-0 overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className={`border-b border-slate-100 p-8 ${modalType === 'IN' ? 'bg-emerald-50/30' : 'bg-rose-50/30'}`}>
+            <div className={`border-b border-slate-100 p-8 ${modalType === 'cash_in' ? 'bg-emerald-50/30' : 'bg-rose-50/30'}`}>
                <div className="flex items-center gap-3">
-                 <div className={`h-10 w-10 rounded-xl flex items-center justify-center ring-4 ${modalType === 'IN' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/5' : 'bg-rose-50 text-rose-600 ring-rose-500/5'}`}>
-                    <Icon name={modalType === 'IN' ? 'add_circle' : 'remove_circle'} className="text-2xl" />
+                 <div className={`h-10 w-10 rounded-xl flex items-center justify-center ring-4 ${modalType === 'cash_in' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/5' : 'bg-rose-50 text-rose-600 ring-rose-500/5'}`}>
+                    <Icon name={modalType === 'cash_in' ? 'add_circle' : 'remove_circle'} className="text-2xl" />
                  </div>
                  <div>
-                    <h3 className="text-xl font-black tracking-tight text-[#0F172A]">Cash {modalType === 'IN' ? 'In' : 'Out'}</h3>
+                    <h3 className="text-xl font-black tracking-tight text-[#0F172A]">Cash {modalType === 'cash_in' ? 'In' : 'Out'}</h3>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Physical Cash Record</p>
                  </div>
                </div>
@@ -243,7 +234,7 @@ function CashbookPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="label">Date</label>
-                  <input className="input !h-12 !text-sm" type="date" name="date" value={form.date} onChange={handleChange} />
+                  <input className="input !h-12 !text-sm" type="date" name="entry_date" value={form.entry_date} onChange={handleChange} />
                 </div>
               </div>
 
@@ -256,13 +247,13 @@ function CashbookPage() {
 
               <div className="space-y-1.5">
                 <label className="label">Notes (Optional)</label>
-                <textarea className="input min-h-[80px] py-3 !text-sm leading-relaxed" name="notes" value={form.notes} onChange={handleChange} placeholder="Describe the transaction..." />
+                <textarea className="input min-h-[80px] py-3 !text-sm leading-relaxed" name="note" value={form.note} onChange={handleChange} placeholder="Describe the transaction..." />
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <button type="button" onClick={() => setOpen(false)} className="btn h-12 !border-none text-slate-400 font-bold px-6 hover:text-slate-600 transition-colors">Discard</button>
                 <button 
-                  className={`btn h-12 px-8 text-white font-bold rounded-xl shadow-lg ${modalType === 'IN' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'}`} 
+                  className={`btn h-12 px-8 text-white font-bold rounded-xl shadow-lg ${modalType === 'cash_in' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'}`} 
                   type="submit"
                 >
                   Save Record

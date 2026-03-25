@@ -70,7 +70,8 @@ function CustomersPage() {
 
   const filtered = customers
     .filter(c => {
-      const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search);
+      const matchesSearch = (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
+                            (c.phone || "").includes(search);
       const balanceNum = Number(c.balance);
       let matchesFilter = true;
       if (filterBy === "You'll Give") matchesFilter = balanceNum < 0;

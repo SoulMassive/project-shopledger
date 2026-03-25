@@ -9,9 +9,9 @@ import {
 
 const router = Router();
 
-router.get('/stats', getStats);
-router.get('/shops', listShops);
-router.get('/shops/:id', getShop);
+router.get('/stats',              getStats);
+router.get('/shops',              listShops);
+router.get('/shops/:id',          getShop);
 router.patch('/shops/:id/approve', approveShop);
 router.patch('/shops/:id/suspend', suspendShop);
 

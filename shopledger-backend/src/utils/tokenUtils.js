@@ -21,6 +21,7 @@ export function signAccessToken(shop) {
       email: shop.owner_email || shop.email,
       status: shop.status,
       role: shop.role || 'shop',
+      schema_name: shop.schema_name,
     },
     getAccessSecret(),
     { subject: String(shop.id), expiresIn: getAccessExpiry() }

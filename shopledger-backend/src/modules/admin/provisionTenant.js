@@ -49,16 +49,23 @@ export async function provisionTenantSchema(pool, schema) {
     )
   `);
 
-  // Trigger to auto-update customer balance on transaction insert
+  // Trigger to auto-update part balances on transaction insert
   await pool.query(`
-    CREATE OR REPLACE FUNCTION "${schema}".update_customer_balance()
+    CREATE OR REPLACE FUNCTION "${schema}".update_party_balance()
     RETURNS TRIGGER AS $$
     BEGIN
       IF NEW.party_type = 'customer' THEN
         UPDATE "${schema}".customers
         SET balance = balance + CASE
-          WHEN NEW.type = 'cash_in'  THEN  NEW.amount
-          WHEN NEW.type = 'cash_out' THEN -NEW.amount
+          WHEN NEW.type = 'cash_in'  THEN  NEW.amount -- You Got (Money/Value)
+          WHEN NEW.type = 'cash_out' THEN -NEW.amount -- You Gave (Money/Value)
+        END
+        WHERE id = NEW.party_id;
+      ELSIF NEW.party_type = 'supplier' THEN
+        UPDATE "${schema}".suppliers
+        SET balance = balance + CASE
+          WHEN NEW.type = 'cash_in'  THEN  NEW.amount -- You Got Goods/Ref (Liability Increases)
+          WHEN NEW.type = 'cash_out' THEN -NEW.amount -- You Gave Payment (Liability Decreases)
         END
         WHERE id = NEW.party_id;
       END IF;
@@ -68,10 +75,10 @@ export async function provisionTenantSchema(pool, schema) {
   `);
 
   await pool.query(`
-    DROP TRIGGER IF EXISTS trg_update_customer_balance ON "${schema}".transactions;
-    CREATE TRIGGER trg_update_customer_balance
+    DROP TRIGGER IF EXISTS trg_update_party_balance ON "${schema}".transactions;
+    CREATE TRIGGER trg_update_party_balance
     AFTER INSERT ON "${schema}".transactions
-    FOR EACH ROW EXECUTE FUNCTION "${schema}".update_customer_balance();
+    FOR EACH ROW EXECUTE FUNCTION "${schema}".update_party_balance();
   `);
 
   console.log(`✅ Tenant schema provisioned: ${schema}`);

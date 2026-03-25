@@ -98,8 +98,8 @@ function DashboardPage() {
                 {recentTx.map((tx, idx) => (
                   <tr key={tx.id} className={idx % 2 ? "bg-slate-50/50" : "bg-white"}>
                     <td className="table-cell font-medium text-slate-700">{tx.customer_name || tx.supplier_name || 'Walk-in'}</td>
-                    <td className="table-cell"><span className={`status-badge ${tx.type === "Credit" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{tx.type}</span></td>
-                    <td className={`table-cell text-right font-bold ${tx.type === "Credit" ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(tx.amount)}</td>
+                    <td className="table-cell"><span className={`status-badge ${tx.type === "cash_in" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{tx.type === "cash_in" ? "Money In" : "Money Out"}</span></td>
+                    <td className={`table-cell text-right font-bold ${tx.type === "cash_in" ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(tx.amount)}</td>
                     <td className="table-cell text-slate-500">{formatDate(tx.date)}</td>
                   </tr>
                 ))}

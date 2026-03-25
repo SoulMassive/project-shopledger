@@ -1,4 +1,4 @@
-﻿import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 function getAccessSecret() {
   return process.env.JWT_ACCESS_SECRET || 'dev_access_secret';
@@ -6,7 +6,9 @@ function getAccessSecret() {
 
 export function authenticate(req, res, next) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const queryToken = req.query.token;
+  const token = headerToken || queryToken;
 
   if (!token) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -20,6 +22,7 @@ export function authenticate(req, res, next) {
       email: payload.email,
       status: payload.status,
       role: payload.role || 'shop',
+      schema_name: payload.schema_name,
     };
     next();
   } catch {
